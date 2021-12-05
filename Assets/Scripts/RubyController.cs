@@ -9,25 +9,36 @@ public class RubyController : MonoBehaviour
 {
     public static int level = 1;
 
-    public float speed = 3.0f;
+    public float speed;
+    public float speedchange;
+    public float slowTimer = 5.0f;
+    public bool isSlow;
 
     public int maxHealth = 5;
 
     public GameObject projectilePrefab;
-
     public AudioClip throwSound;
     public AudioClip hitSound;
     public AudioClip collectedClip;
+    public AudioClip bulletCollected;
+    public AudioClip sidequestpickupsound;
     public AudioClip fixedSound;
     public AudioClip WinMusic;
     public AudioClip LoseMusic;
+    public AudioClip tarsound;
 
     public int score;
     public TMP_Text robotsFixed;
 
-    public bool levelonedone;
+    public GameObject Sidequest;
+    public TMP_Text sidequestcount;
+    public int sidequestscore;
+    public bool Sidequestcomplete;
+
+    public bool missionComplete;
     public GameObject nextMissionBox;
-    public float displaytime2 = 5.0f;
+    public TMP_Text NextMissionText;
+    public float displaytime2 = 6.0f;
     public float timerDisplay2;
 
     public GameObject gameOverBox;
@@ -58,6 +69,10 @@ public class RubyController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        speed = 3.0f;
+        speedchange = 1.0f;
+        isSlow = false;
+
         rigidbody2d = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
 
@@ -76,8 +91,17 @@ public class RubyController : MonoBehaviour
         gameOverBox.SetActive(false);
         GameOverText.text = "";
 
-        levelonedone = false;
+        missionComplete = false;
         GameOver = false;
+
+        Sidequest.SetActive(false);
+        Sidequestcomplete = false;
+        sidequestscore = 0;
+
+        if (level == 2)
+        {
+            sidequestcount.text = "Items found: 0";
+        }
     }
 
     // Update is called once per frame
@@ -116,11 +140,15 @@ public class RubyController : MonoBehaviour
             if (hit.collider != null)
             {
                 NonPlayerCharacter character = hit.collider.GetComponent<NonPlayerCharacter>();
-                if (character != null  && levelonedone == false)
+                if (character != null  && missionComplete == false)
                 {
                     character.DisplayDialog();
+                    if (level == 2)
+                    {
+                        Sidequest.SetActive(true);
+                    }
                 }
-                else if (character != null && levelonedone == true)
+                else if (character != null && missionComplete == true)
                 {
                     level = 2;
                     SceneManager.LoadScene("Level 2");
@@ -155,10 +183,21 @@ public class RubyController : MonoBehaviour
     void FixedUpdate()
     {
         Vector2 position = rigidbody2d.position;
-        position.x = position.x + speed * horizontal * Time.deltaTime;
-        position.y = position.y + speed * vertical * Time.deltaTime;
+        position.x = position.x + speed * horizontal * Time.deltaTime * speedchange;
+        position.y = position.y + speed * vertical * Time.deltaTime * speedchange;
 
         rigidbody2d.MovePosition(position);
+
+        if (isSlow == true)
+        {
+            slowTimer -= Time.deltaTime;
+            if (slowTimer < 0)
+            {
+                isSlow = false;
+                speedchange = 1.0f;
+                slowTimer = 5.0f;
+            }
+        }
     }
 
     public void ChangeCogs(int cogAmount)
@@ -213,21 +252,83 @@ public class RubyController : MonoBehaviour
         {
             if (level == 1)
             {
-                NextMission();
+                missionComplete = true;
+                timerDisplay2 = displaytime2;
+                nextMissionBox.SetActive(true);
             }
 
             else if (level == 2)
             {
-                GameOver = true;
-                speed = 0;
-                audioSource.Stop();
-                audioSource.clip = WinMusic;
-                audioSource.Play();
-                gameOverBox.SetActive(true);
-                GameOverText.text = "You win!  Game created by Dakota Robinson.  Press R to play again!";
+                if (Sidequestcomplete == false)
+                {
+                    nextMissionBox.SetActive(true);
+                    NextMissionText.text = "Good job fixing the robots!  But I'm still missing some of my tools...";
+                    missionComplete = true;
+                    timerDisplay2 = displaytime2;
+                }
+
+                if(Sidequestcomplete == true)
+                {
+                    GameOver = true;
+                    speed = 0;
+                    audioSource.Stop();
+                    audioSource.clip = WinMusic;
+                    audioSource.Play();
+                    gameOverBox.SetActive(true);
+                    GameOverText.text = "You win!  Game created by Dakota Robinson.  Press R to play again!";
+                }
+
             }
             
         }
+    }
+
+    public void SidequestController(int sidequestcollected)
+    {
+        if (sidequestcollected >= 0)
+        {
+            PlaySound(sidequestpickupsound);
+        }
+
+        sidequestscore = sidequestscore + sidequestcollected;
+        sidequestcount.text = "Items Found: " + sidequestscore.ToString();
+
+        if (sidequestscore >= 5)
+        {
+            Sidequestcomplete = true;
+
+            if(missionComplete == false)
+            {
+                nextMissionBox.SetActive(true);
+                NextMissionText.text = "Great job finding my stuff!  Just finish fixing the robots and we'll be all done!";
+                timerDisplay2 = displaytime2;
+            }
+
+            if(missionComplete == true)
+            {
+                    GameOver = true;
+                    speed = 0;
+                    audioSource.Stop();
+                    audioSource.clip = WinMusic;
+                    audioSource.Play();
+                    gameOverBox.SetActive(true);
+                    GameOverText.text = "You win!  Game created by Dakota Robinson.  Press R to play again!";
+
+            }
+        }
+        
+
+    }
+
+    public void OnTriggerEnter2D(Collider2D other)
+    {
+        if(other.tag == "Tar")
+        {
+            isSlow = true;
+            speedchange = 0.5f;
+            PlaySound(tarsound);
+        }
+
     }
 
     public void Launch()
@@ -254,13 +355,6 @@ public class RubyController : MonoBehaviour
     public void PlaySound(AudioClip clip)
     {
         audioSource.PlayOneShot(clip);
-    }
-
-    public void NextMission()
-    {
-        levelonedone = true;
-        timerDisplay2 = displaytime2;
-        nextMissionBox.SetActive(true);
     }
 
 }

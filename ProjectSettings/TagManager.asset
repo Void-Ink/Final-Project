@@ -7,6 +7,8 @@ TagManager:
   - RubyController
   - Bullet Pickup
   - Bullet
+  - Tarpit
+  - Tar
   layers:
   - Default
   - TransparentFX
